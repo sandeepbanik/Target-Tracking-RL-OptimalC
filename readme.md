@@ -89,7 +89,7 @@ python data_playback.py --mcap sac_training_full.mcap
 In addition to MCAP-based logging, training curves recorded by Stable-Baselines3 can be visualized directly from the CSV logs generated during training.
 
 **Relevant file**
-- `plot_data.py`: reads SB3 `progress.csv` and plots reward and loss curves :contentReference[oaicite:0]{index=0}
+- `plot_data.py`: reads SB3 `progress.csv` and plots reward and loss curves
 
 The script loads `./logs_sac/progress.csv` and plots, when available:
 - mean episode reward (`rollout/ep_rew_mean`)
