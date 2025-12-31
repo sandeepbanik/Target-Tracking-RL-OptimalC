@@ -84,6 +84,10 @@ class VehicleEnv(gym.Env):
         rel_y = -dx * np.sin(theta) + dy * np.cos(theta)
         
         return np.array([rel_x, rel_y, np.arctan2(np.sin(theta), np.cos(theta))], dtype=np.float32)
+    
+    def get_state(self):
+        return np.array(self.state, dtype=float).copy()
+
 
     def SNS(self, state,u):
         """
