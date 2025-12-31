@@ -25,7 +25,8 @@ The optimal control module formulates a constrained (target as the final state t
 - `4WS_SNS_simulate.py`: Solves the optimal control problem and visualizes the resulting trajectory :contentReference[oaicite:3]{index=3}
 
 **Trajectory visualization**
-![Optimal control single-agent trajectory](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/tree/main/Opt%20singel%20agent/opt_agent.gif)
+![Optimal control single-agent trajectory](https://raw.githubusercontent.com/sandeepbanik/Target-Tracking-RL-OptimalC/main/Opt%20singel%20agent/opt_agent.gif)
+
 
 ## Reinforcement Learning (Single Agent, SAC)
 A Gymnasium-compatible environment is provided for learning goal-reaching behavior using Soft Actor-Critic. The observation is defined relative to the target, and actions correspond to normalized velocity and steering commands.
