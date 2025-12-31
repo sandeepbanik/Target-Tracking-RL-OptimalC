@@ -25,7 +25,7 @@ The optimal control module formulates a constrained (target as the final state t
 - `4WS_SNS_simulate.py`: Solves the optimal control problem and visualizes the resulting trajectory :contentReference[oaicite:3]{index=3}
 
 **Trajectory visualization**
-![Optimal control single-agent trajectory](https://raw.githubusercontent.com/sandeepbanik/Target-Tracking-RL-OptimalC/main/Opt%20singel%20agent/opt_agent.gif)
+![Optimal control trajectory](https://raw.githubusercontent.com/sandeepbanik/Target-Tracking-RL-OptimalC/main/Opt%20singel%20agent/opt_agent.gif)
 
 
 ## Reinforcement Learning (Single Agent, SAC)
