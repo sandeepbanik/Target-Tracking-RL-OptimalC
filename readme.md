@@ -62,3 +62,26 @@ The code also supports multi-agent execution by deploying multiple instances of 
 ## Visualization Utilities
 All trajectory plots and animations are implemented using Matplotlib, with explicit rendering of the vehicle body and individual wheels.
 
+## Data Logging (MCAP) and Playback
+
+Training metrics, episode statistics, and transition tuples can be logged to an MCAP file during SAC training. The training pipeline in `training.py` uses an MCAP callback to write:
+
+- `/rl/episode`: episode return and episode length statistics
+- `/rl/metrics`: periodic training metrics (e.g., actor/critic loss if available)
+- `/rl/transition`: sampled transitions (state, action, reward, next_state, done)
+
+**Relevant files**
+- `training.py`: writes MCAP logs via `MCAPMetricsCallback` (e.g., `sac_training_full.mcap`) 
+- `data_playback.py`: reads the MCAP file and plots training curves and state trajectories 
+
+### Playback (plots from MCAP)
+Use `data_playback.py` to load the MCAP log and plot:
+- episode return vs steps
+- selected training metrics vs steps
+- (x, y) trajectory from logged transitions
+- selected state components vs steps
+
+**Example**
+```bash
+python data_playback.py --mcap sac_training_full.mcap
+
