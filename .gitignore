@@ -1,0 +1,18 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Environments
+venv/
+env/
+
+# Weights & Biases / Logs
+wandb/
+runs/
+events.out.tfevents.*
+
+# Large Model Files 
+# models/*.zip
+
+# OS files
+.DS_Store

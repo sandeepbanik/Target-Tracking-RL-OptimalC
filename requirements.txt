@@ -1,0 +1,6 @@
+gymnasium==0.29.1
+stable-baselines3[extra]==2.2.1
+numpy<2.0.0
+matplotlib
+wandb
+shimmy>=0.2.1
