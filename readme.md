@@ -82,11 +82,10 @@ Use `data_playback.py` to load the MCAP log and plot:
 - selected state components vs steps
 
 **Example**
-```bash
 python data_playback.py --mcap sac_training_full.mcap
 
-### Training Plots from SB3 Logs
 
+### Playback training 
 In addition to MCAP-based logging, training curves recorded by Stable-Baselines3 can be visualized directly from the CSV logs generated during training.
 
 **Relevant file**
