@@ -35,12 +35,17 @@ A Gym environment is provided for learning to reach a specified target using Sof
 - `vehicle_env.py`: Gym environment definition
 - `training.py`: SAC training pipeline with logging and MCAP support
 - `config.py`: RL hyperparameters
+- `mcap_utils.py`: MCAP utility function for different schema
+- `mcap_logger.py`: MCAP logging file to log the vehicle data
 
 **Testing / evaluation**
-- `testing_single_agent.py`:   Load the trained SAC policy and roll out trajectories
+- `testing_single_agent.py`:   Load the trained SAC policy and roll out single trajectory
+- `single_agent_testing_MCAP_v2.py`:   Load the trained SAC policy, roll out single trajectory and log the data in MCAP logger. 
 
 **Trajectory visualization**
 ![Single agent RL](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/blob/main/RL%20singel%20and%20multi-agent/single_agent.gif)
+
+![Single agent RL MCAP](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/blob/main/RL%20singel%20and%20multi-agent/single_agent_episode.gif)
 
 ## Multi-Agent Reinforcement Learning with CBF
 The code also supports multi-agent execution by deploying multiple instances of the learned SAC policy, each controlling a separate vehicle. Safety is enforced using a velocity-level control barrier function that ensures pairwise collision avoidance while minimally modifying the learned action under the assumption that each vehicle is in the safe set (to ensure forward invariance).
@@ -52,43 +57,39 @@ The code also supports multi-agent execution by deploying multiple instances of 
 
 **Relevant files**
 - `vehicle_env.py`: Shared environment dynamics
+- `mcap_utils.py`: MCAP utility function for different schema
+- `mcap_logger.py`: MCAP logging file to log the vehicle data
 
 **Testing**
 - `MA_CBF_test.py` runs a three-agent scenario with distinct initial conditions and targets, logs trajectories, and generates an animation.
+- `testing_three_agents_with_CBF.py` runs a three-agent scenario with distinct initial conditions and targets, logs a trajectory using MCAP.
+
 
 **Trajectory visualization**
 ![Multi-agent RL](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/blob/main/RL%20singel%20and%20multi-agent/three_agent.gif)
+![Multi-agent RL MCAP](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/blob/main/RL%20singel%20and%20multi-agent/three_agent_episode.gif)
 
 ## Visualization Utilities
 All trajectory plots and animations are implemented using Matplotlib, with explicit rendering of the vehicle body and individual wheels.
 
 ## Data Logging (MCAP) and Playback
 
-Training metrics, episode statistics, and transition tuples can be logged to an MCAP file during SAC training. The training pipeline in `training.py` uses an MCAP callback to write:
+Training metrics, episode statistics, and transition tuples can be logged to an MCAP file during SAC training as well as testing. The training pipeline in `training.py` uses an MCAP callback to write:
 
 - `/rl/episode`: episode return and episode length statistics
 - `/rl/metrics`: periodic training metrics (e.g., actor/critic loss if available)
 - `/rl/transition`: sampled transitions (state, action, reward, next_state, done)
 
+During the testing the MCAP logs each episode, state of the vehicle, control actions, and scene (for drawing 3D blocks)
+- `/agent_i/state` - > STATE_SCHEMA: Stores the state of the vehilce in STATE_SCHEMA and channel /agent_i/state
+- `/agent_i/control` -> ACT_SCHEMA: Stores the control of the vehilce in ACT_SCHEMA and channel /agent_i/control
+- `/scene` -> SCENEUPDATE_SCHEMA_MIN: Stores the scene for the vehicle with geometry of the body and wheels in SCENEUPDATE_SCHEMA_MIN and channel /agent_i/control
+
+
+
 **Relevant files**
 - `training.py`: writes MCAP logs via `MCAPMetricsCallback` (e.g., `sac_training_full.mcap`) 
 - `data_playback.py`: reads the MCAP file and plots training curves and state trajectories 
-
-### Playback (plots from MCAP)
-Use `data_playback.py` to load the MCAP log and plot:
-- episode return vs steps
-- selected training metrics vs steps
-- (x, y) trajectory from logged transitions
-- selected state components vs steps
-
-**Example**
-python data_playback.py --mcap sac_training_full.mcap
-
-
-### Playback training 
-In addition to MCAP-based logging, training curves recorded by Stable-Baselines3 can be visualized directly from the CSV logs generated during training.
-
-**Relevant file**
 - `plot_data.py`: reads SB3 `progress.csv` and plots reward and loss curves
 
 The script loads `./logs_sac/progress.csv` and plots, when available:
