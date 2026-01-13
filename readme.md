@@ -42,6 +42,10 @@ A Gym environment is provided for learning to reach a specified target using Sof
 - `testing_single_agent.py`:   Load the trained SAC policy and roll out single trajectory
 - `single_agent_testing_MCAP_v2.py`:   Load the trained SAC policy, roll out single trajectory and log the data in MCAP logger. 
 
+**Training data**
+
+MCAP file link - https://uillinoisedu-my.sharepoint.com/:u:/g/personal/baniksan_illinois_edu/IQCionqhJ2CnSrsamks5_a1nAaBoqagHnZDy-edNLyFF9k4?e=G4NSjr
+
 **Trajectory visualization**
 ![Single agent RL](https://github.com/sandeepbanik/Target-Tracking-RL-OptimalC/blob/main/RL%20singel%20and%20multi-agent/single_agent.gif)
 
