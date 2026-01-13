@@ -1,0 +1,397 @@
+import matplotlib.pyplot as plt
+import config
+from matplotlib.patches import Rectangle
+from matplotlib import animation
+import numpy as np
+import pdb
+from matplotlib.animation import PillowWriter
+
+
+# -----------------------------
+# Helpers: trig + ackermann math
+# -----------------------------
+def cot(x):
+    return 1.0 / np.tan(x)
+
+def arccot(x):
+    # principal value in (-pi/2, pi/2)
+    return np.arctan(1.0 / x)
+
+
+def plot_states(t, y, u, yf=None, figure=None):
+    plt.figure(figure)
+ 
+    # Plot the xy trajectory
+    plt.subplot(3, 1, 1)
+    plt.plot(y[0], y[1])
+    plt.xlabel("x [m]")
+    plt.ylabel("y [m]")
+    if yf is not None:
+        plt.plot(yf[0], yf[1], 'ro')
+ 
+    # Plot the inputs as a function of time
+    plt.subplot(3, 1, 2)
+    plt.plot(t, u[0])
+    plt.xlabel("t [sec]")
+    plt.ylabel("velocity [m/s]")
+    plt.subplot(3, 1, 3)
+    plt.plot(t, u[1])
+    plt.xlabel("t [sec]")
+    plt.ylabel("steering [rad/s]")
+
+    plt.tight_layout()
+    plt.show(block=False)
+
+def rot2(theta):
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([[c, -s], [s,  c]])
+
+def set_rect_center_angle(rect: Rectangle, center_xy, angle_rad, length, width):
+    # Rectangle expects lower-left + angle in degrees about that corner.
+    # We set lower-left so that the rectangle is centered at center_xy.
+    cx, cy = center_xy
+    ll = np.array([-length/2, -width/2])  # local lower-left w.r.t. center
+    R = rot2(angle_rad)
+    ll_world = np.array([cx, cy]) + R @ ll
+
+    rect.set_xy(ll_world)
+    rect.angle = np.degrees(angle_rad)
+    rect.set_width(length)
+    rect.set_height(width)
+
+
+
+
+
+def plot_vehicle(vehicle_model, states, controls, opc_time):
+    
+    """
+    Plot function for the vehicle trajectory and animation.
+    :param states: [x, y, theta, v] states of the vehicle over time
+    """
+    # pdb.set_trace()
+    x,y,theta,v = states
+    v,delta = controls
+    tspan = opc_time
+
+    body_L = config.L 
+    body_W = config.W
+
+    wheel_W = body_W/4
+    wheel_H = body_L/4
+
+
+    # -----------------------------
+    # Plot + animation
+    # -----------------------------
+    fig, ax = plt.subplots(1, 1, figsize=(9, 5))
+    ax.axis('equal')
+    ax.grid(True)
+
+    # Trajectory background
+    ax.plot(x, y, lw=1.5)
+    traj_line, = ax.plot([], [], lw=2)  # animated partial trajectory
+
+    # Body rectangle (we will place it so rear axle is at ~25% of body length from the back)
+    body = Rectangle((x[0]-body_L/2, y[0]-body_W/2), body_L, body_W, angle = np.degrees(theta[0]), fill=False, linewidth=2)
+    # body = Rectangle((x[100]-body_L/2, y[100]-body_W/2), body_L, body_W, angle = np.degrees(theta[100]), fill=False, linewidth=2)
+    ax.add_patch(body)
+
+    # Determine the initial wheel positions.
+    d_fr, d_fl, d_rr, d_rl, v_fr, v_fl, v_rr, v_rl = vehicle_model.SNS([x[0], y[0], theta[0]], [0, 0])
+    # Wheel rectangles
+    wFR = Rectangle((x[0]+body_L/2-wheel_H/2, y[0]-body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_fr), fill=True, alpha=0.9)
+    wFL = Rectangle((x[0]+body_L/2-wheel_H/2, y[0]+body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_fl), fill=True, alpha=0.9)
+    wRR = Rectangle((x[0]-body_L/2-wheel_H/2, y[0]-body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_rr), fill=True, alpha=0.9)
+    wRL = Rectangle((x[0]-body_L/2-wheel_H/2, y[0]+body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_rl), fill=True, alpha=0.9)
+    for w in (wFR, wFL, wRR, wRL):
+        ax.add_patch(w)
+
+
+    def update_v_body(k):
+        # Extract vehicle pose
+        xr, yr, th = x[k], y[k], theta[k]
+        vr, deltar = v[k], delta[k]
+
+        # Update the rectangles patches
+        d_fr, d_fl, d_rr, d_rl, v_fr, v_fl, v_rr, v_rl = vehicle_model.SNS([xr, yr, th], [vr, deltar])
+        # Car body update.
+        set_rect_center_angle(body, (xr, yr), th, body_L, body_W)
+
+        R = rot2(th)
+        offsets = {
+        'FR': np.array([ body_L/2, -body_W/2]),
+        'FL': np.array([ body_L/2,  body_W/2]),
+        'RR': np.array([-body_L/2, -body_W/2]),
+        'RL': np.array([-body_L/2,  body_W/2])
+        }
+        
+        pos_fr = np.array([xr, yr]) + R @ offsets['FR']
+        set_rect_center_angle(wFR, pos_fr, th + d_fr, wheel_H, wheel_W)
+
+        pos_fl = np.array([xr, yr]) + R @ offsets['FL']
+        set_rect_center_angle(wFL, pos_fl, th + d_fl, wheel_H, wheel_W)
+
+        pos_rr = np.array([xr, yr]) + R @ offsets['RR']
+        set_rect_center_angle(wRR, pos_rr, th + d_rr, wheel_H, wheel_W)
+
+        pos_rl = np.array([xr, yr]) + R @ offsets['RL']
+        set_rect_center_angle(wRL, pos_rl, th + d_rl, wheel_H, wheel_W)
+
+
+
+        # Partial trajectory
+        traj_line.set_data(x[:k+1], y[:k+1])
+
+        return traj_line, body, wFR, wFL, wRR, wRL
+    
+    ani = animation.FuncAnimation(fig, 
+                                  update_v_body, frames=len(tspan), interval=20, blit=True
+        )
+
+    plt.show()
+    return ani
+
+
+def plot_vehicle_to_target(vehicle_model, states, controls, target, time_span):
+    
+    """
+    Plot function for the vehicle trajectory to target and animation.
+    :param states: [x, y, theta, v] states of the vehicle over time
+    """
+    x,y,theta,v = states
+    v,delta = controls
+    tspan = time_span
+    target_x, target_y = target
+
+    body_L = config.L 
+    body_W = config.W
+
+    wheel_W = body_W/4
+    wheel_H = body_L/4
+
+
+    # -----------------------------
+    # Plot + animation
+    # -----------------------------
+    fig, ax = plt.subplots(1, 1, figsize=(9, 5))
+    ax.set_xlim(x[0]-1, target[0]+1)
+    ax.set_ylim(y[0]-1, target[1]+1)
+    ax.axis('equal')
+    ax.grid(True)
+
+    # Trajectory background
+    ax.plot(x, y, lw=1.5)
+    traj_line, = ax.plot([], [], lw=2)  # animated partial trajectory
+
+    # Draw the target point
+    ax.plot(target_x, target_y, 'rx', markersize=10, label='Target')
+
+
+    # Body rectangle (we will place it so rear axle is at ~25% of body length from the back)
+    body = Rectangle((x[0]-body_L/2, y[0]-body_W/2), body_L, body_W, angle = np.degrees(theta[0]), fill=False, linewidth=2)
+    # body = Rectangle((x[100]-body_L/2, y[100]-body_W/2), body_L, body_W, angle = np.degrees(theta[100]), fill=False, linewidth=2)
+    ax.add_patch(body)
+
+    # Determine the initial wheel positions.
+    d_fr, d_fl, d_rr, d_rl, v_fr, v_fl, v_rr, v_rl = vehicle_model.SNS([x[0], y[0], theta[0]], [0, 0])
+    # Wheel rectangles
+    wFR = Rectangle((x[0]+body_L/2-wheel_H/2, y[0]-body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_fr), fill=True, alpha=0.9)
+    wFL = Rectangle((x[0]+body_L/2-wheel_H/2, y[0]+body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_fl), fill=True, alpha=0.9)
+    wRR = Rectangle((x[0]-body_L/2-wheel_H/2, y[0]-body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_rr), fill=True, alpha=0.9)
+    wRL = Rectangle((x[0]-body_L/2-wheel_H/2, y[0]+body_W/2-wheel_W/2), wheel_H, wheel_W, angle = np.degrees(d_rl), fill=True, alpha=0.9)
+    for w in (wFR, wFL, wRR, wRL):
+        ax.add_patch(w)
+
+
+    def update_v_body(k):
+        # Extract vehicle pose
+        xr, yr, th = x[k], y[k], theta[k]
+        vr, deltar = v[k], delta[k]
+
+        # Update the rectangles patches
+        d_fr, d_fl, d_rr, d_rl, v_fr, v_fl, v_rr, v_rl = vehicle_model.SNS([xr, yr, th], [vr, deltar])
+        # Car body update.
+        set_rect_center_angle(body, (xr, yr), th, body_L, body_W)
+
+        R = rot2(th)
+        offsets = {
+        'FR': np.array([ body_L/2, -body_W/2]),
+        'FL': np.array([ body_L/2,  body_W/2]),
+        'RR': np.array([-body_L/2, -body_W/2]),
+        'RL': np.array([-body_L/2,  body_W/2])
+        }
+        
+        pos_fr = np.array([xr, yr]) + R @ offsets['FR']
+        set_rect_center_angle(wFR, pos_fr, th + d_fr, wheel_H, wheel_W)
+
+        pos_fl = np.array([xr, yr]) + R @ offsets['FL']
+        set_rect_center_angle(wFL, pos_fl, th + d_fl, wheel_H, wheel_W)
+
+        pos_rr = np.array([xr, yr]) + R @ offsets['RR']
+        set_rect_center_angle(wRR, pos_rr, th + d_rr, wheel_H, wheel_W)
+
+        pos_rl = np.array([xr, yr]) + R @ offsets['RL']
+        set_rect_center_angle(wRL, pos_rl, th + d_rl, wheel_H, wheel_W)
+
+
+
+        # Partial trajectory
+        traj_line.set_data(x[:k+1], y[:k+1])
+
+        return traj_line, body, wFR, wFL, wRR, wRL
+    
+    ani = animation.FuncAnimation(fig, 
+                                  update_v_body, frames=len(tspan), interval=50, blit=True
+        )
+    
+    # Save as GIF
+    gif_path = "single_agent.gif"
+    writer = PillowWriter(fps=20)   # fps = 1000 / interval ≈ 20
+    ani.save(gif_path, writer=writer)
+
+    plt.show()
+    return ani
+
+
+
+# def plot_vehicle_to_targets_3agents(vehicle_models, states_list, controls_list, targets_list, time_span):
+#     """
+#     Three-agent animation.
+
+#     Your storage format:
+#       - states_list[i]   : np.ndarray (T, 4)  columns [x, y, theta, v]
+#       - controls_list[i] : np.ndarray (T, 2)  columns [v_cmd, delta_cmd]
+#       - targets_list[i]  : np.ndarray (2,)   columns [tx, ty]   (one fixed target per agent)
+#       - time_span        : array-like length T
+#     """
+#     # pdb.set_trace()
+#     assert len(vehicle_models) == 3
+#     assert len(states_list) == 3
+#     assert len(controls_list) == 3
+#     assert len(targets_list) == 3
+
+#     T = len(time_span)
+
+#     body_L = config.L
+#     body_W = config.W
+#     wheel_W = body_W / 4
+#     wheel_H = body_L / 4
+
+#     fig, ax = plt.subplots(1, 1, figsize=(9, 5))
+#     ax.axis("equal")
+#     ax.grid(True)
+
+#     agent_colors = ["C0", "C1", "C2"]
+
+#     # Targets (fixed per agent)
+#     target_markers = []
+#     for i in range(3):
+#         tgt = np.asarray(targets_list[i]).reshape(-1)
+#         tx, ty = float(tgt[0]), float(tgt[1])
+#         mk, = ax.plot(tx, ty, "x", markersize=10, color=agent_colors[i], label=f"Target {i+1}")
+#         target_markers.append(mk)
+
+#     # Axis limits from all trajectories + targets
+#     all_x = np.concatenate([np.asarray(states_list[i])[:, 0] for i in range(3)] +
+#                            [np.array([np.asarray(targets_list[i]).reshape(-1)[0]]) for i in range(3)])
+#     all_y = np.concatenate([np.asarray(states_list[i])[:, 1] for i in range(3)] +
+#                            [np.array([np.asarray(targets_list[i]).reshape(-1)[1]]) for i in range(3)])
+
+#     pad = 5.0
+#     ax.set_xlim(float(np.min(all_x) - pad), float(np.max(all_x) + pad))
+#     ax.set_ylim(float(np.min(all_y) - pad), float(np.max(all_y) + pad))
+
+#     ax.legend(loc="best")
+
+#     traj_lines = []
+#     bodies = []
+#     wheels = []
+
+#     # Initialize patches per agent
+#     for i in range(3):
+#         s0 = np.asarray(states_list[i])[0]
+#         x0, y0, th0, v0 = float(s0[0]), float(s0[1]), float(s0[2]), float(s0[3])
+
+#         vm = vehicle_models[i]
+
+#         traj, = ax.plot([], [], lw=2, color=agent_colors[i])
+#         traj_lines.append(traj)
+
+#         body = Rectangle(
+#             (x0 - body_L / 2, y0 - body_W / 2),
+#             body_L,
+#             body_W,
+#             angle=np.degrees(th0),
+#             fill=False,
+#             linewidth=2,
+#             edgecolor=agent_colors[i],
+#         )
+#         ax.add_patch(body)
+#         bodies.append(body)
+
+#         d_fr, d_fl, d_rr, d_rl, *_ = vm.SNS([x0, y0, th0], [0.0, 0.0])
+
+#         wFR = Rectangle((0, 0), wheel_H, wheel_W, color=agent_colors[i], alpha=0.9)
+#         wFL = Rectangle((0, 0), wheel_H, wheel_W, color=agent_colors[i], alpha=0.9)
+#         wRR = Rectangle((0, 0), wheel_H, wheel_W, color=agent_colors[i], alpha=0.9)
+#         wRL = Rectangle((0, 0), wheel_H, wheel_W, color=agent_colors[i], alpha=0.9)
+
+#         for w in (wFR, wFL, wRR, wRL):
+#             ax.add_patch(w)
+
+#         wheels.append((wFR, wFL, wRR, wRL))
+
+#         # Initial wheel placement
+#         R = rot2(th0)
+#         offsets = {
+#             "FR": np.array([ body_L/2, -body_W/2]),
+#             "FL": np.array([ body_L/2,  body_W/2]),
+#             "RR": np.array([-body_L/2, -body_W/2]),
+#             "RL": np.array([-body_L/2,  body_W/2]),
+#         }
+#         p0 = np.array([x0, y0])
+#         set_rect_center_angle(wFR, p0 + R @ offsets["FR"], th0 + d_fr, wheel_H, wheel_W)
+#         set_rect_center_angle(wFL, p0 + R @ offsets["FL"], th0 + d_fl, wheel_H, wheel_W)
+#         set_rect_center_angle(wRR, p0 + R @ offsets["RR"], th0 + d_rr, wheel_H, wheel_W)
+#         set_rect_center_angle(wRL, p0 + R @ offsets["RL"], th0 + d_rl, wheel_H, wheel_W)
+
+#     def update(k):
+#         artists = []
+
+#         for i in range(3):
+#             s = np.asarray(states_list[i])
+#             u = np.asarray(controls_list[i])
+
+#             xr, yr, th, v_state = float(s[k, 0]), float(s[k, 1]), float(s[k, 2]), float(s[k, 3])
+#             deltar = float(u[k, 1])
+
+#             vm = vehicle_models[i]
+#             d_fr, d_fl, d_rr, d_rl, *_ = vm.SNS([xr, yr, th], [v_state, deltar])
+
+#             set_rect_center_angle(bodies[i], (xr, yr), th, body_L, body_W)
+
+#             wFR, wFL, wRR, wRL = wheels[i]
+#             R = rot2(th)
+#             offsets = {
+#                 "FR": np.array([ body_L/2, -body_W/2]),
+#                 "FL": np.array([ body_L/2,  body_W/2]),
+#                 "RR": np.array([-body_L/2, -body_W/2]),
+#                 "RL": np.array([-body_L/2,  body_W/2]),
+#             }
+#             p = np.array([xr, yr])
+#             set_rect_center_angle(wFR, p + R @ offsets["FR"], th + d_fr, wheel_H, wheel_W)
+#             set_rect_center_angle(wFL, p + R @ offsets["FL"], th + d_fl, wheel_H, wheel_W)
+#             set_rect_center_angle(wRR, p + R @ offsets["RR"], th + d_rr, wheel_H, wheel_W)
+#             set_rect_center_angle(wRL, p + R @ offsets["RL"], th + d_rl, wheel_H, wheel_W)
+
+#             traj_lines[i].set_data(s[:k+1, 0], s[:k+1, 1])
+
+#             artists.extend([traj_lines[i], bodies[i], wFR, wFL, wRR, wRR, wRL, target_markers[i]])
+
+#         return artists
+
+#     pdb.set_trace()
+#     ani = animation.FuncAnimation(fig, update, frames=T, interval=50, blit=True)
+#     plt.show()
+#     return ani
